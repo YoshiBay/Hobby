@@ -18,7 +18,7 @@
 #define _BTTxPin 8
 #define _BTEnPin 7
 SoftwareSerial btSerial(_BTRxPin, _BTTxPin);
-bool testBT=false;
+bool btComMode=false;
 #define _SBAUD_COM 9600 // COMMUNICATION
 #define _SBAUD_AT 38400 // for AT command
 
@@ -63,7 +63,6 @@ void btComTest(){
   char c;
   if (Serial.available()){
     c=Serial.read();
-    btSerial.write(c);
     if (c=='#') {
       for ( int i = 0; i < 10; i++){
          btSerial.println("1234567890");
@@ -78,15 +77,19 @@ void btComTest(){
         Serial.println("->AT");
         HC05_AT(_SBAUD_AT);
     } else if (c == '-') {
-        testBT = false;
+        Serial.println("->exit");
+        btComMode = false;
+    } else {
+        btSerial.write(c);
     }
   } else if ( btSerial.available()){
     c=btSerial.read();
-    Serial.write(c);
     if (c=='#') {
       for ( int i = 0; i < 10; i++){
          Serial.println("1234567890");
       }
+    } else {
+       Serial.write(c);
     }
   }
 }
@@ -103,7 +106,8 @@ void setup() {
 
   Serial.begin(SERIAL_RATE);
 
-
+  // BT setup
+  checkAT();
 }
 void driveFree() {
   digitalWrite(_IN1,LOW);
@@ -202,10 +206,15 @@ bool serialCommandLine() {
    }
 
    if (commandDet) {
-      commandStr[commandPtr]=0; // end 
-      commandPtr = 0; // clear
-      Serial.print("command:");
-      Serial.println(commandStr);
+      if ( commandStr[0] == '\n' || commandStr[0]== '\r') { // ignore \n\r
+         commandDet=false;
+         commandPtr=0;
+      } else {
+         commandStr[commandPtr]=0; // end 
+         commandPtr = 0; // clear
+         Serial.print("sCommand:");
+         Serial.println(commandStr);
+      }
    }
    return (commandDet);
 }
@@ -250,7 +259,7 @@ bool btCommandLine() {
    if (commandDet) {
       commandStr[commandPtr]=0; // end 
       commandPtr = 0; // clear
-      Serial.print("command:");
+      Serial.print("btCommand:");
       Serial.println(commandStr);
    }
   return (commandDet) ;
@@ -326,10 +335,22 @@ void commandProcess(char command[]){
      } else if ( command[0] == 'D' || command[0] == 'd' ) {
         demoState = 0;
         if ( command[1] == '1' ) {
+           Serial.println("demo start");
            demoMode = true;
         } else {
+           Serial.println("demo end");
            demoMode=false;
            driveFree();
+        }
+     } else if ( command[0] == 'B' || command[0] == 'b' ) {
+        if ( command[1] == '1' ) {
+           btComMode=true;
+           Serial.println("BT bridge mode start");
+        } else if ( command[1] == '0' ) { // fail safe
+           btComMode=false;
+           Serial.println("BT bridge mode end");
+        } else {
+           //NOP
         }
      }
 }
@@ -390,7 +411,7 @@ void demo (int state){
 }
 
 void loop() {
-  if ( testBT ){  // for debug & BT control
+  if ( btComMode ){  // for debug & BT control
      btSerial.listen();
      btComTest();
   } else {
