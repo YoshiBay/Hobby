@@ -21,6 +21,8 @@ SoftwareSerial btSerial(_BTRxPin, _BTTxPin);
 bool btComMode=false;
 #define _SBAUD_COM 9600 // COMMUNICATION
 #define _SBAUD_AT 38400 // for AT command
+#define _BT_DEVICE "98DA,60,01A57E"
+
 
 int demoState=0;
 
@@ -324,6 +326,17 @@ long command2hex(char str[], int st_ptr) {
    return val;
 }
 
+void btReBind(){
+   HC05_AT(_SBAUD_COM); // move to AT command mode on communication state
+   delay(100);
+   btSerial.println("AT+DISC");
+   btSerial.print("AT+BIND=");
+   btSerial.print(_BT_DEVICE);
+   btSerial.println();
+   delay(100);
+   HC05_com(_SBAUD_COM); // return to comminication
+}
+
 bool demoMode = false;
 void commandProcess(char command[]){
      if ( command[0] == '?' || command[0] == 'H' || command[0] == 'h' ) {
@@ -352,6 +365,8 @@ void commandProcess(char command[]){
         } else {
            //NOP
         }
+     } else if ( command[0] == 'R' || command[0] == 'r' ) {
+        btReBind();
      }
 }
 

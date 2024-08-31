@@ -6,9 +6,12 @@
 #define SERIAL_RATE 9600 
 #define _RPin 2
 #define _YPin 3
-
 #define _GPin 6
 #define _WPin 4
+#define _RPush 0b0001
+#define _YPush 0b0010
+#define _GPush 0b0100
+#define _WPush 0b1000
 #define _RLed 5
 
 #include <SoftwareSerial.h>
@@ -96,15 +99,30 @@ void setup() {
   Serial.begin(SERIAL_RATE);
 
   // pin setting
-  pinMode(_RPin, INPUT);
-  pinMode(_YPin, INPUT);
-  pinMode(_GPin, INPUT);
-  pinMode(_WPin, INPUT);
+  pinMode(_RPin, INPUT_PULLUP);
+  pinMode(_YPin, INPUT_PULLUP);
+  pinMode(_GPin, INPUT_PULLUP);
+  pinMode(_WPin, INPUT_PULLUP);
   pinMode(_RLed, OUTPUT);
   digitalWrite(_RLed, HIGH);
 
+  // Timer setup
+  TCCR1A = 0; // 初期化
+  TCCR1B = 0; // 初期化
+  TCNT1 = 3036; 
+  TCCR1B |= (1 << CS12);
+       // ( 65536 * 256 ) / 8000000 = 2.09 sec
+  TIMSK1 |= (1 << TOIE1); //TOIE -> 1
+  TCNT1 = 0; // clear
+
   // BT setup
   checkAT();
+}
+
+bool intTimer1=false;
+ISR(TIMER1_OVF_vect) {
+  intTimer1=true;
+  TCNT1 = 0;
 }
 
 byte commandPtr=0;
@@ -270,7 +288,7 @@ void commandProcess(char command[]){
         Serial.println("Help");
 
      } else if ( command[0] == 'M' || command[0] == 'm' ) {
-        motorDrive(command);
+        motorDrive(command, true);
 
      } else if ( command[0] == 'D' || command[0] == 'd' ) {
         demoState = 0;
@@ -295,81 +313,150 @@ void commandProcess(char command[]){
      }
 }
 
-void motorDrive(char command[]){
-  btSerial.println(command);
+char prevCommand[3]="M11"; // stop
+void motorDrive(char command[], bool heartBeat){
+  if ( !heartBeat ) {
+     if ( strcmp(prevCommand, command) != 0 ){
+        strcpy(prevCommand, command);
+        btSerial.println(command);
+        TCNT1 = 0; // HB timer clear
+        if (true) { // debug
+          Serial.println(command);
+        }
+     }
+  } else { // heartBeat
+     btSerial.println(command);
+     if (true) { // debug
+        Serial.println(command);
+     }
+  }
 }
 
 void demo (int state){
    switch (state) {
       // forward
       case 0:
-        motorDrive("M22");
+        motorDrive("M22", false);
         break;
       case 1:
-        motorDrive("M12");
+        motorDrive("M12", false);
         break;
       case 2:
-        motorDrive("M21");
+        motorDrive("M21", false);
         break;
       case 3:
-        motorDrive("M22");
+        motorDrive("M22", false);
         break;
 
       // back
       case 4:
-        motorDrive("M00");
+        motorDrive("M00", false);
         break;
 
       case 5:
-        motorDrive("M01");
+        motorDrive("M01", false);
         break;
 
       case 6:
-        motorDrive("M10");
+        motorDrive("M10", false);
         break;
 
       case 7:
-        motorDrive("M00");
+        motorDrive("M00", false);
         break;
 
       // rotate
       case 8:
-        motorDrive("M11");
+        motorDrive("M11", false);
         break;
 
       case 9:
-        motorDrive("M20");
+        motorDrive("M20", false);
         break;
 
       case 10:
-        motorDrive("M02");
+        motorDrive("M02", false);
         break;
 
       case 11:
-        motorDrive("M11");
+        motorDrive("M11", false);
         break;
 
       Defaults:
-        motorDrive("M11");
+        motorDrive("M11", false);
    }
 }
 
+byte readButton(){
+  byte rc = 0;
+  if ( !digitalRead(_RPin) ) rc |= _RPush;
+  if ( !digitalRead(_GPin) ) rc |= _GPush;
+  if ( !digitalRead(_YPin) ) rc |= _YPush;
+  if ( !digitalRead(_WPin) ) rc |= _WPush;
+  return rc;
+}
+byte buttonCheck(){
+  if (readButton() == 0 ) {
+     digitalWrite(_RLed, HIGH);
+     return 0;
+  }
+  digitalWrite(_RLed, LOW);
+  delay(100);
+  int rc = readButton();
+  if ( true ) { // debug
+     if ( rc & _RPush ) {
+        Serial.print("R ");
+     }
+     if ( rc & _GPush ) {
+        Serial.print("G ");
+     }
+     if ( rc & _YPush ) {
+        Serial.print("Y ");
+     }
+     if ( rc & _WPush ) {
+        Serial.print("W ");
+     }
+     Serial.println();
+  }
+  return rc;
+}
+
+void  buttonProcess(byte flag){
+  char command[2];
+  switch (flag) {
+    case _RPush | _GPush :
+       motorDrive("M22", false); // forward
+       break;
+    case _RPush :
+       motorDrive("M12", false); // forward turn left
+       break;
+    case _GPush :
+       motorDrive("M21", false); // forward turn right
+       break;
+    case _RPush | _WPush :
+       motorDrive("M02", false); // rotate left
+       break;
+    case _GPush | _YPush:
+       motorDrive("M20", false);  // rotate right
+       break;
+    case _WPush | _YPush:
+       motorDrive("M00", false); // backword
+       break;
+    case _WPush:
+       motorDrive("M01", false); // backword turn right
+       break;
+    case _YPush:
+       motorDrive("M10", false); // backword turn left
+       break;
+    default:
+       motorDrive("M11", false);  // stop
+       break;
+  }
+}
+
+byte buttonFlag =0;
 void loop() {
-  if ( digitalRead(_RPin) ) {
-     Serial.println("R");
-  }
-
-  if ( digitalRead(_GPin) ) {
-     Serial.println("G");
-  }
-
-  if ( digitalRead(_YPin) ) {
-     Serial.println("Y");
-  }
-
-  if ( digitalRead(_WPin) ) {
-     Serial.println("W");
-  }
+  buttonFlag |= buttonCheck();
 
   if ( btComMode ){  // for debug & BT control
      btSerial.listen();
@@ -388,6 +475,15 @@ void loop() {
         demo(demoState++);
         if ( 11 < demoState ) demoState = 0;
         delay(5000);
+     } else {
+       if ( intTimer1 ) {
+           intTimer1=false;
+           TCNT1=0; // clear
+           motorDrive(prevCommand, true);  // HeartBeat
+       } else {
+           buttonProcess(buttonFlag);
+           buttonFlag = 0;
+       }
      }
   }
 }
