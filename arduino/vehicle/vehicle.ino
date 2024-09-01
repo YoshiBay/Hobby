@@ -4,19 +4,19 @@
   Serial & BT(HC05) control
  */
 // Define for L298N
-#define _IN1 2
-#define _IN2 3
-#define _IN3 4
-#define _IN4 5
-#define _ENA 0
-#define _ENB 0
+#define _ENA 6 //3
+#define _IN1 5 // 2
+#define _IN2 7 // 4
+#define _IN3 2 // 5
+#define _IN4 4 // 7
+#define _ENB 3 // 6
 
 #define SERIAL_RATE 9600 
 
 #include <SoftwareSerial.h>
 #define _BTRxPin 9
 #define _BTTxPin 8
-#define _BTEnPin 7
+#define _BTEnPin 10
 SoftwareSerial btSerial(_BTRxPin, _BTTxPin);
 bool btComMode=false;
 #define _SBAUD_COM 9600 // COMMUNICATION
@@ -102,8 +102,8 @@ void setup() {
   pinMode(_IN2,OUTPUT);
   pinMode(_IN3,OUTPUT);
   pinMode(_IN4,OUTPUT);
-  if ( _ENA != 0 ) pinMode (_ENA,OUTPUT);
-  if ( _ENB != 0 ) pinMode (_ENB,OUTPUT);
+  pinMode (_ENA,OUTPUT);
+  pinMode (_ENB,OUTPUT);
   driveFree();
 
   Serial.begin(SERIAL_RATE);
@@ -112,6 +112,8 @@ void setup() {
   checkAT();
 }
 void driveFree() {
+  digitalWrite(_ENA,HIGH);
+  digitalWrite(_ENB,HIGH);
   digitalWrite(_IN1,LOW);
   digitalWrite(_IN2,LOW);
   digitalWrite(_IN3,LOW);
@@ -136,10 +138,12 @@ void motorDrive(char command[]){
 }
      
 void forwardLeft() {
+  digitalWrite(_ENA,HIGH);
   digitalWrite(_IN1,HIGH);
   digitalWrite(_IN2,LOW);
 }
 void forwardRight() {
+  digitalWrite(_ENB,HIGH);
   digitalWrite(_IN3,HIGH);
   digitalWrite(_IN4,LOW);
 }
@@ -148,10 +152,12 @@ void forward() {
   forwardRight();
 }
 void reverseLeft() {
+  digitalWrite(_ENA,HIGH);
   digitalWrite(_IN1,LOW);
   digitalWrite(_IN2,HIGH);
 }
 void reverseRight() {
+  digitalWrite(_ENB,HIGH);
   digitalWrite(_IN3,LOW);
   digitalWrite(_IN4,HIGH);
 }
@@ -160,10 +166,12 @@ void reverse() {
   reverseRight();
 }
 void brakeLeft() {
+  digitalWrite(_ENA,HIGH);
   digitalWrite(_IN1,HIGH);
   digitalWrite(_IN2,HIGH);
 }
 void brakeRight() {
+  digitalWrite(_ENB,HIGH);
   digitalWrite(_IN3,HIGH);
   digitalWrite(_IN4,HIGH);
 }
