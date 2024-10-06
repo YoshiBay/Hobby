@@ -21,7 +21,7 @@
 //  SPI_MODE0: Clock NegEdge, DataChange at PosEdge of Clock
 //  SPI_MODE1: Clock NegEdge, DataChange at NegEdge of Clock
 //  SPI_MODE2: Clock PosEdge, DataChange at PosEdge of Clock
-//  SPI_MODE2: Clock PosEdge, DataChange at NegEdge of Clock
+//  SPI_MODE3: Clock PosEdge, DataChange at NegEdge of Clock
 //  Clock Freq
 //    SPI2X SPR01 SPR00 freq
 //    0     0     0     fosc/4  = 16M/4=4MHz
